@@ -1,0 +1,8 @@
+{
+  "name": "SmartSubstitute AI",
+  "description": "An intelligent substitute teacher arrangement system powered by Gemini AI, featuring automated scheduling, workload analysis, AI chatbot assistance, and image editing capabilities.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

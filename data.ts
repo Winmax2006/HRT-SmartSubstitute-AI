@@ -123,6 +123,12 @@ export interface RuleAnalysisResult {
   suggestions: RuleSuggestion[];
 }
 
+export interface WorkloadInsight {
+  summary: string;
+  recommendations: string[];
+  riskTeachers: string[];
+}
+
 export interface SheetConfig {
   spreadsheetId: string;
   apiKey: string;
@@ -148,10 +154,10 @@ export const TEACHERS: Teacher[] = [
     name: "ครูโกศลพิสิทธิ์ ปูน้อย", 
     subject: "วิทยาศาสตร์", 
     grade_level: "secondary_low", 
-    teaching_hours: 12,
+    teaching_hours: 14,
     substitute_hours: 2,
-    other_hours: 1,
-    workload: 75, // (12+2+1)/20 * 100
+    other_hours: 3,
+    workload: 95, 
     email: "teacher1@school.ac.th", 
     phone: "081-234-5678",
     status: "active",
@@ -190,6 +196,38 @@ export const TEACHERS: Teacher[] = [
     specialty: "ฟุตบอล/บาสเกตบอล",
     notes: "โค้ชทีมโรงเรียน",
     avatar: "https://picsum.photos/id/1005/200/200" 
+  },
+  { 
+    id: "T004", 
+    name: "ครูวิมลรัตน์ สายทอง", 
+    subject: "คณิตศาสตร์", 
+    grade_level: "primary_low", 
+    teaching_hours: 15,
+    substitute_hours: 1,
+    other_hours: 2,
+    workload: 90, 
+    email: "teacher4@school.ac.th", 
+    phone: "084-567-8901",
+    status: "active",
+    specialty: "คณิตศาสตร์ประยุกต์",
+    notes: "-",
+    avatar: "https://picsum.photos/id/1012/200/200" 
+  },
+  { 
+    id: "T005", 
+    name: "ครูมุฑิตา ศรีคร้าม", 
+    subject: "สังคมศึกษา", 
+    grade_level: "secondary_low", 
+    teaching_hours: 12,
+    substitute_hours: 0,
+    other_hours: 1,
+    workload: 65, 
+    email: "teacher5@school.ac.th", 
+    phone: "085-678-9012",
+    status: "active",
+    specialty: "ประวัติศาสตร์",
+    notes: "-",
+    avatar: "https://picsum.photos/id/1014/200/200" 
   }
 ];
 
@@ -309,6 +347,15 @@ export async function analyzeRuleEffectiveness(rules: Rule[], history: Substitut
   if (!apiKey) return null;
   try {
     const context = `Analyze rules: ${JSON.stringify(rules)}. History: ${JSON.stringify(history)}. Output JSON {analysis, overallScore, suggestions}.`;
+    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: context, config: { responseMimeType: 'application/json' } });
+    return response.text ? JSON.parse(response.text) : null;
+  } catch (error) { return null; }
+}
+
+export async function analyzeWorkload(teachers: Teacher[], baseHours: number): Promise<WorkloadInsight | null> {
+  if (!apiKey) return null;
+  try {
+    const context = `Analyze school workload for teachers: ${JSON.stringify(teachers)}. Base hours per week is ${baseHours}. Identify who is overloaded, who is underloaded, and provide specific management recommendations. Output JSON {summary, recommendations[], riskTeachers[]}.`;
     const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: context, config: { responseMimeType: 'application/json' } });
     return response.text ? JSON.parse(response.text) : null;
   } catch (error) { return null; }

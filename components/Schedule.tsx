@@ -14,38 +14,46 @@ export const Schedule: React.FC = () => {
     const matchesSearch = s.class_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           s.subject.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesDay && matchesSearch;
-  }).sort((a, b) => parseInt(a.period_no) - parseInt(b.period_no));
+  }).sort((a, b) => {
+    const indexA = TIME_SLOTS.findIndex(ts => ts.id === a.timeslot_id);
+    const indexB = TIME_SLOTS.findIndex(ts => ts.id === b.timeslot_id);
+    return indexA - indexB;
+  });
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">ตารางสอน</h2>
-        <div className="flex gap-2">
-           <Button variant="secondary" size="sm">
-             <Filter size={16} className="mr-2" /> กรองข้อมูล
+    <div className="space-y-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-2">Class Schedules</p>
+           <h2 className="text-4xl font-black text-slate-800 tracking-tight">Main Timetable</h2>
+           <p className="text-slate-400 text-sm mt-1">Manage and view teaching periods across all grades</p>
+        </div>
+        <div className="flex gap-3">
+           <Button variant="secondary" size="md">
+             <Filter size={14} className="mr-2 text-blue-600" /> Export Excel
            </Button>
         </div>
       </div>
 
       <Card>
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-8 mb-10">
           <div className="flex-1">
-             <label className="block text-xs font-medium text-[#a7b0c9] mb-1">ค้นหา</label>
-             <div className="relative">
+             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Refine Search</label>
+             <div className="relative group">
                <input 
                  type="text" 
-                 placeholder="ค้นหาวิชา หรือ ห้องเรียน..." 
-                 className="w-full bg-[#0b0e1a] border border-[#242c47] rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-[#7aa2ff]"
+                 placeholder="Search subject or class..." 
+                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 text-[13px] font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all group-hover:bg-white"
                  value={searchTerm}
                  onChange={(e) => setSearchTerm(e.target.value)}
                />
-               <Search size={16} className="absolute left-3 top-2.5 text-[#a7b0c9]" />
+               <Search size={18} className="absolute left-4 top-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" />
              </div>
           </div>
-          <div className="w-full md:w-48">
-             <label className="block text-xs font-medium text-[#a7b0c9] mb-1">วัน</label>
+          <div className="w-full md:w-64">
+             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Select Day</label>
              <select 
-                className="w-full bg-[#0b0e1a] border border-[#242c47] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#7aa2ff]"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-[13px] font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer"
                 value={filterDay}
                 onChange={(e) => setFilterDay(e.target.value)}
              >
@@ -56,64 +64,84 @@ export const Schedule: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[#242c47]">
-                <th className="p-4 text-xs font-semibold text-[#a7b0c9] uppercase tracking-wider">คาบ</th>
-                <th className="p-4 text-xs font-semibold text-[#a7b0c9] uppercase tracking-wider">เวลา</th>
-                <th className="p-4 text-xs font-semibold text-[#a7b0c9] uppercase tracking-wider">ห้องเรียน</th>
-                <th className="p-4 text-xs font-semibold text-[#a7b0c9] uppercase tracking-wider">วิชา</th>
-                <th className="p-4 text-xs font-semibold text-[#a7b0c9] uppercase tracking-wider">ครูผู้สอน</th>
-                <th className="p-4 text-xs font-semibold text-[#a7b0c9] uppercase tracking-wider">ภาระงาน</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#242c47]">
-              {filteredSchedules.length > 0 ? (
-                filteredSchedules.map((schedule) => {
-                  const teacher = TEACHERS.find(t => t.id === schedule.teacher_id);
-                  const timeSlot = TIME_SLOTS.find(ts => ts.id === schedule.timeslot_id);
+        <div className="relative overflow-hidden rounded-3xl border border-slate-100">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Period</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Time</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Classroom</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Subject</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Instructor</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Workload</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {TIME_SLOTS.map((slot) => {
+                  const schedule = filteredSchedules.find(s => s.timeslot_id === slot.id);
+                  const teacher = schedule ? TEACHERS.find(t => t.id === schedule.teacher_id) : null;
+                  const isLunch = slot.id === 'L';
+                  
                   return (
-                    <tr key={schedule.id} className="hover:bg-[#7aa2ff]/5 transition-colors">
-                      <td className="p-4">
-                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#242c47] text-sm font-bold text-[#7aa2ff]">
-                          {schedule.period_no}
+                    <tr key={slot.id} className={`${isLunch ? 'bg-amber-50/30' : 'hover:bg-slate-50/50'} transition-all group`}>
+                      <td className="p-6">
+                        <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${isLunch ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600 group-hover:bg-blue-600 group-hover:text-white'} text-[13px] font-black transition-colors`}>
+                          {slot.period_no}
                         </span>
                       </td>
-                      <td className="p-4 text-sm text-[#e9edff]">{timeSlot?.time_label}</td>
-                      <td className="p-4 text-sm text-[#e9edff] font-medium">{schedule.class_name}</td>
-                      <td className="p-4">
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-[#7aa2ff]/10 text-[#7aa2ff] border border-[#7aa2ff]/20">
-                          {schedule.subject}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                           {teacher?.avatar && <img src={teacher.avatar} alt="" className="w-6 h-6 rounded-full" />}
-                           <span className="text-sm text-[#e9edff]">{teacher?.name}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 h-2 bg-[#0b0e1a] rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full ${teacher && teacher.workload > 70 ? 'bg-red-400' : 'bg-emerald-400'}`} 
-                              style={{ width: `${teacher?.workload || 0}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs text-[#a7b0c9]">{teacher?.workload}%</span>
-                        </div>
-                      </td>
+                      <td className="p-6 text-[13px] font-bold text-slate-600">{slot.time_label}</td>
+                      {isLunch ? (
+                        <td colSpan={4} className="p-6 text-center">
+                          <span className="text-[11px] font-black text-amber-600 uppercase tracking-[0.2em] bg-white/50 px-4 py-1.5 rounded-full border border-amber-100">
+                            Lunch Break
+                          </span>
+                        </td>
+                      ) : (
+                        <>
+                          <td className="p-6 text-[13px] font-black text-slate-800">{schedule?.class_name || '-'}</td>
+                          <td className="p-6">
+                            {schedule ? (
+                              <span className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
+                                {schedule.subject}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 font-bold">-</span>
+                            )}
+                          </td>
+                          <td className="p-6">
+                            {teacher ? (
+                              <div className="flex items-center gap-3">
+                                 {teacher.avatar && <img src={teacher.avatar} alt="" className="w-8 h-8 rounded-full border border-slate-200" />}
+                                 <span className="text-[13px] font-bold text-slate-700">{teacher.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 font-bold">-</span>
+                            )}
+                          </td>
+                          <td className="p-6">
+                            {teacher ? (
+                              <div className="flex items-center gap-3">
+                                <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ${teacher.workload > 70 ? 'bg-red-400' : 'bg-blue-600'}`} 
+                                    style={{ width: `${teacher.workload || 0}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-[11px] font-black text-slate-400">{teacher.workload}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 font-bold">-</span>
+                            )}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
-                })
-              ) : (
-                 <tr>
-                   <td colSpan={6} className="p-8 text-center text-[#a7b0c9]">ไม่พบตารางสอนสำหรับเงื่อนไขที่เลือก</td>
-                 </tr>
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </Card>
     </div>

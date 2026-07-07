@@ -10,22 +10,27 @@ export const TEACHERS: Teacher[] = [
 ];
 
 export const TIME_SLOTS: TimeSlot[] = [
-  { id: "1", period_no: "1", time_label: "08:30-09:20" },
-  { id: "2", period_no: "2", time_label: "09:20-10:10" },
-  { id: "3", period_no: "3", time_label: "10:10-11:00" },
-  { id: "4", period_no: "4", time_label: "11:00-11:50" },
-  { id: "5", period_no: "5", time_label: "12:50-13:40" },
-  { id: "6", period_no: "6", time_label: "13:40-14:30" },
-  { id: "7", period_no: "7", time_label: "14:40-15:30" }
+  { id: "1", period_no: "1", time_label: "08:30-09:30" },
+  { id: "2", period_no: "2", time_label: "09:30-10:30" },
+  { id: "3", period_no: "3", time_label: "10:30-11:30" },
+  { id: "L", period_no: "พัก", time_label: "11:30-12:30" },
+  { id: "4", period_no: "4", time_label: "12:30-13:30" },
+  { id: "5", period_no: "5", time_label: "13:30-14:30" },
+  { id: "6", period_no: "6", time_label: "14:30-15:30" }
 ];
 
-export const MOCK_SCHEDULES: ScheduleItem[] = Array.from({ length: 20 }, (_, i) => {
+export const MOCK_SCHEDULES: ScheduleItem[] = Array.from({ length: 25 }, (_, i) => {
   const teacher = TEACHERS[Math.floor(Math.random() * TEACHERS.length)];
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const slotIds = TIME_SLOTS.filter(ts => ts.id !== "L").map(ts => ts.id); // Skip lunch for mock classes
+  const slotId = slotIds[Math.floor(Math.random() * slotIds.length)];
+  const slot = TIME_SLOTS.find(ts => ts.id === slotId);
+
   return {
     id: `S${100 + i}`,
-    day_of_week: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][Math.floor(Math.random() * 5)],
-    timeslot_id: `${(i % 7) + 1}`,
-    period_no: `${(i % 7) + 1}`,
+    day_of_week: days[Math.floor(Math.random() * days.length)],
+    timeslot_id: slotId,
+    period_no: slot?.period_no || "1",
     class_name: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"][Math.floor(Math.random() * 9)],
     grade_level: teacher.grade_level,
     subject: teacher.subject,

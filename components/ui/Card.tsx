@@ -24,20 +24,17 @@ export const Card: React.FC<CardProps> = ({
     <div 
       onClick={onClick}
       className={`
-        bg-white dark:bg-slate-900 rounded-xl p-6 transition-all duration-300
-        ${active 
-          ? 'border border-indigo-500 dark:border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.15)] -translate-y-1' 
-          : 'border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none hover:shadow-md hover:-translate-y-1'
-        }
+        bg-white rounded-[2rem] p-8 transition-all duration-300
+        border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1
         ${onClick ? 'cursor-pointer' : ''}
         ${className}
       `}
     >
       {(title || icon || action) && (
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            {icon && <div className="text-indigo-500 dark:text-indigo-400 text-xl">{icon}</div>}
-            {title && <h3 className={`text-xl font-semibold ${active ? 'text-indigo-900 dark:text-white' : 'text-slate-800 dark:text-slate-100'}`}>{title}</h3>}
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            {icon && <div className="text-blue-600 w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center p-2">{icon}</div>}
+            {title && <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>}
           </div>
           {action && <div>{action}</div>}
         </div>

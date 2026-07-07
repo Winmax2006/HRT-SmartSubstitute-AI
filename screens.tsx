@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Clock, CheckCircle, Mail, AlertTriangle, RefreshCw, Calendar as CalendarIcon, Search, Filter, Brain, UserPlus, Check, History, User, BookOpen, Database, FileSpreadsheet, Link as LinkIcon, Plus, Trash2, ToggleLeft, ToggleRight, Save, BarChart2, ArrowRight, X, Upload, Image as ImageIcon, Wand2, Download, AlertCircle, CheckCircle as CheckCircleIcon, XCircle, Shuffle, Briefcase, CalendarClock, AlertOctagon, TrendingUp, Layers, PieChart, Phone, Mail as MailIcon, GraduationCap, Edit, UserCheck, UserX, FileText, ArrowLeftRight, Activity } from 'lucide-react';
+import { Users, Clock, CheckCircle, Mail, AlertTriangle, RefreshCw, Calendar as CalendarIcon, Search, Filter, Brain, UserPlus, Check, History, User, BookOpen, Database, FileSpreadsheet, Link as LinkIcon, Plus, Trash2, ToggleLeft, ToggleRight, Save, BarChart2, ArrowRight, X, Upload, Image as ImageIcon, Wand2, Download, AlertCircle, CheckCircle as CheckCircleIcon, XCircle, Shuffle, Briefcase, CalendarClock, AlertOctagon, TrendingUp, Layers, PieChart, Phone, Mail as MailIcon, GraduationCap, Edit, UserCheck, UserX, FileText, ArrowLeftRight, Activity, Sparkles, Zap, ChevronRight, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, Legend } from 'recharts';
 import { Card, Button } from './components';
-import { View, Teacher, MOCK_NOTIFICATIONS, MOCK_SCHEDULES, TEACHERS, TIME_SLOTS, MOCK_SUBSTITUTE_HISTORY, MOCK_APPROVALS, INITIAL_RULES, suggestSubstitute, SheetService, ExcelService, analyzeRuleEffectiveness, RuleAnalysisResult, RuleSuggestion, Rule, editImage, getSheetConfig, saveSheetConfig, SheetConfig, SubstituteHistoryItem, MOCK_PERIOD_SWAPS, PeriodSwapItem, WorkloadSettings, DEFAULT_WORKLOAD_SETTINGS } from './data';
+import { View, Teacher, MOCK_NOTIFICATIONS, MOCK_SCHEDULES, TEACHERS, TIME_SLOTS, MOCK_SUBSTITUTE_HISTORY, MOCK_APPROVALS, INITIAL_RULES, suggestSubstitute, SheetService, ExcelService, analyzeRuleEffectiveness, RuleAnalysisResult, RuleSuggestion, Rule, editImage, getSheetConfig, saveSheetConfig, SheetConfig, SubstituteHistoryItem, MOCK_PERIOD_SWAPS, PeriodSwapItem, WorkloadSettings, DEFAULT_WORKLOAD_SETTINGS, analyzeWorkload, WorkloadInsight } from './data';
 
 // ==========================================
 // DASHBOARD
@@ -805,6 +805,412 @@ export const Rules: React.FC = () => {
 };
 
 // ==========================================
+// WORKLOAD
+// ==========================================
+
+export const Workload: React.FC = () => {
+  const [baseHours, setBaseHours] = useState(DEFAULT_WORKLOAD_SETTINGS.baseHours);
+  const [isAnalyzingWorkload, setIsAnalyzingWorkload] = useState(false);
+  const [workloadInsights, setWorkloadInsights] = useState<WorkloadInsight | null>(null);
+
+  useEffect(() => {
+    const storedWorkload = localStorage.getItem('smartsub_workload_settings');
+    if (storedWorkload) {
+      setBaseHours(JSON.parse(storedWorkload).baseHours);
+    }
+  }, []);
+
+  const chartData = TEACHERS.map(t => {
+    const teachingPerc = (t.teaching_hours / baseHours) * 100;
+    const substitutePerc = (t.substitute_hours / baseHours) * 100;
+    const otherPerc = (t.other_hours / baseHours) * 100;
+
+    return {
+      name: t.name.split(' ')[0], 
+      teachingPerc: Math.round(teachingPerc * 10) / 10,
+      substitutePerc: Math.round(substitutePerc * 10) / 10,
+      otherPerc: Math.round(otherPerc * 10) / 10,
+      totalLoad: t.workload,
+      full: t
+    };
+  }).sort((a, b) => b.totalLoad - a.totalLoad);
+
+  const totalTeachingHours = TEACHERS.reduce((acc, curr) => acc + curr.teaching_hours, 0);
+  const totalSubHours = TEACHERS.reduce((acc, curr) => acc + curr.substitute_hours, 0);
+  const totalOtherHours = TEACHERS.reduce((acc, curr) => acc + curr.other_hours, 0);
+  const avgLoad = Math.round(TEACHERS.reduce((acc, curr) => acc + curr.workload, 0) / TEACHERS.length);
+  const criticalTeachers = TEACHERS.filter(t => t.workload > 85).length;
+
+  const handleDeepAnalyze = async () => {
+    setIsAnalyzingWorkload(true);
+    const insights = await analyzeWorkload(TEACHERS, baseHours);
+    setWorkloadInsights(insights);
+    setIsAnalyzingWorkload(false);
+  };
+
+  return (
+    <div className="space-y-6 pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Activity className="text-indigo-600 dark:text-indigo-400" /> ภาระงานครูและวิเคราะห์ศักยภาพ
+        </h2>
+        <div className="flex gap-2">
+            <Button variant="secondary" size="sm" className="font-bold border-indigo-200 dark:border-indigo-800">
+                <Download size={16} className="mr-2" /> ส่งออกรายงาน
+            </Button>
+            <Button onClick={handleDeepAnalyze} isLoading={isAnalyzingWorkload} size="sm" className="font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md">
+                <Sparkles size={16} className="mr-2" /> วิเคราะห์เชิงลึกด้วย AI
+            </Button>
+        </div>
+      </div>
+      
+      {/* 1. Global Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'ชั่วโมงสอนรวม', value: `${totalTeachingHours} ชม.`, sub: 'ชั่วโมงสอนปกติ', icon: <BookOpen />, color: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' },
+          { label: 'ภาระงานเฉลี่ย', value: `${avgLoad}%`, sub: 'ของขีดจำกัดโรงเรียน', icon: <TrendingUp />, color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' },
+          { label: 'วิกฤต (Overload)', value: `${criticalTeachers} คน`, sub: 'ภาระงานสูงเกิน 85%', icon: <AlertOctagon />, color: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' },
+          { label: 'ชั่วโมงสอนแทน', value: `${totalSubHours} ชม.`, sub: 'ในสัปดาห์ปัจจุบัน', icon: <Shuffle />, color: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' },
+        ].map((stat, i) => (
+          <div key={i} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-4 shadow-sm">
+             <div className={`p-3 rounded-xl ${stat.color}`}>{stat.icon}</div>
+             <div>
+                <div className="text-xs font-extrabold text-[#9CA3AF] uppercase mb-0.5 tracking-tighter">{stat.label}</div>
+                <div className="text-xl font-extrabold text-slate-900 dark:text-white leading-tight">{stat.value}</div>
+                <div className="text-[10px] text-[#9CA3AF] font-bold">{stat.sub}</div>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         {/* 2. Visual Chart */}
+         <div className="lg:col-span-2">
+            <Card title="กราฟวิเคราะห์ภาระงานแยกตามประเภท (%)" icon={<PieChart size={20}/>}>
+               <div className="h-[450px] w-full">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={chartData} layout="vertical" margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} className="dark:stroke-slate-800" />
+                     <XAxis type="number" stroke="#94a3b8" domain={[0, 100]} />
+                     <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} style={{ fontSize: '12px', fontWeight: 'bold' }} />
+                     <Tooltip 
+                        cursor={{fill: 'transparent'}}
+                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9', borderRadius: '8px', fontWeight: 'bold' }}
+                        itemStyle={{ fontWeight: 'bold' }}
+                     />
+                     <Legend verticalAlign="top" height={36}/>
+                     <Bar dataKey="teachingPerc" name="สอนปกติ" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
+                     <Bar dataKey="substitutePerc" name="สอนแทน" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+                     <Bar dataKey="otherPerc" name="งานอื่นๆ" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} />
+                     <ReferenceLine x={85} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: 'Overload (85%)', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }} />
+                   </BarChart>
+                 </ResponsiveContainer>
+               </div>
+               <div className="mt-4 flex flex-wrap gap-4 text-[10px] font-bold text-slate-500 justify-center">
+                  <div className="flex items-center gap-1"><span className="w-3 h-3 bg-[#6366f1] rounded"></span> สอนปกติ</div>
+                  <div className="flex items-center gap-1"><span className="w-3 h-3 bg-[#f59e0b] rounded"></span> สอนแทน</div>
+                  <div className="flex items-center gap-1"><span className="w-3 h-3 bg-[#10b981] rounded"></span> งานอื่นๆ</div>
+               </div>
+            </Card>
+         </div>
+         
+         {/* 3. Capacity Insight Card */}
+         <div className="space-y-6">
+            <Card title="ข้อมูลเชิงลึก (Insights)" icon={<Zap size={20}/>} className="bg-indigo-50/30 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/30">
+               <div className="space-y-6 font-bold">
+                  <div>
+                    <h5 className="text-xs text-[#9CA3AF] uppercase mb-2 flex items-center justify-between">
+                        สถานะการกระจายงาน 
+                        <span className="text-indigo-600 dark:text-indigo-400 lowercase italic">ระดับ: ปานกลาง</span>
+                    </h5>
+                    <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-indigo-500" style={{width: '60%'}}></div>
+                        <div className="h-full bg-amber-500" style={{width: '20%'}}></div>
+                        <div className="h-full bg-slate-300 dark:bg-slate-700" style={{width: '20%'}}></div>
+                    </div>
+                    <div className="flex justify-between mt-1 text-[10px] text-slate-500">
+                        <span>สมดุล (60%)</span>
+                        <span>เริ่มหนัก (20%)</span>
+                        <span>ว่าง (20%)</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                     <h5 className="text-xs text-slate-700 dark:text-slate-300">ประเด็นสำคัญประจำสัปดาห์:</h5>
+                     <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+                        <div className="flex items-start gap-2">
+                            <Info size={14} className="text-indigo-500 shrink-0 mt-0.5" />
+                            <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                                ภาระงานสอนแทนเพิ่มขึ้น 12% เมื่อเทียบกับสัปดาห์ก่อนหน้า สาเหตุหลักมาจากการลาราชการของกลุ่มสาระวิทย์
+                            </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                            <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                                ครูสุชาดา และครูมุฑิตา ยังคงมี Capacity ว่างพอสำหรับการสนับสนุนภาระงานฉุกเฉินในคาบเช้า
+                            </p>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-900 border-amber-200 dark:border-amber-900/30 shadow-none">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-lg text-amber-600 dark:text-amber-400">
+                        <AlertOctagon size={20} />
+                    </div>
+                    <h3 className="font-extrabold text-slate-800 dark:text-slate-100">พื้นที่เสี่ยง Burnout</h3>
+                </div>
+                <div className="space-y-2">
+                    {TEACHERS.filter(t => t.workload > 85).map(t => (
+                        <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-amber-200/50 dark:border-amber-800/30">
+                            <div className="flex items-center gap-2">
+                                <img src={t.avatar} className="w-6 h-6 rounded-full" />
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{t.name}</span>
+                            </div>
+                            <span className="text-xs font-extrabold text-red-600 dark:text-red-400">{t.workload}%</span>
+                        </div>
+                    ))}
+                    <p className="text-[10px] text-slate-500 font-bold italic mt-2 text-center">ควรพิจารณาลดภาระงานอื่นๆ หรือสอนแทน</p>
+                </div>
+            </Card>
+         </div>
+      </div>
+
+      {/* 4. Detailed Teacher List Table */}
+      <Card title="รายละเอียดภาระงานครูรายบุคคล (Detailed Staff Record)" icon={<Layers size={20}/>}>
+         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase">บุคลากร</th>
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase">กลุ่มสาระ</th>
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase text-center">สอน (ชม.)</th>
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase text-center">แทน (ชม.)</th>
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase text-center">อื่นๆ (ชม.)</th>
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase">ระดับภาระงาน (%)</th>
+                     <th className="p-4 text-xs font-extrabold text-slate-500 uppercase">สถานะ</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                  {TEACHERS.map((teacher) => (
+                    <tr key={teacher.id} className="hover:bg-slate-50 dark:hover:bg-indigo-900/10 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <img src={teacher.avatar} className="w-8 h-8 rounded-full border border-indigo-100 shadow-sm" alt="" />
+                          <div>
+                            <div className="text-sm font-bold text-slate-900 dark:text-white">{teacher.name}</div>
+                            <div className="text-[10px] font-extrabold text-[#9CA3AF] uppercase tracking-tighter">ID: {teacher.id}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                         <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{teacher.subject}</span>
+                      </td>
+                      <td className="p-4 text-center">
+                         <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{teacher.teaching_hours}</span>
+                      </td>
+                      <td className="p-4 text-center">
+                         <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{teacher.substitute_hours}</span>
+                      </td>
+                      <td className="p-4 text-center">
+                         <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{teacher.other_hours}</span>
+                      </td>
+                      <td className="p-4">
+                         <div className="flex items-center gap-3">
+                            <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden max-w-[100px]">
+                                <div className={`h-full ${teacher.workload > 85 ? 'bg-red-500' : teacher.workload > 70 ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{width: `${Math.min(teacher.workload, 100)}%`}}></div>
+                            </div>
+                            <span className={`text-xs font-extrabold ${teacher.workload > 85 ? 'text-red-600' : 'text-slate-700 dark:text-slate-200'}`}>{teacher.workload}%</span>
+                         </div>
+                      </td>
+                      <td className="p-4">
+                         <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
+                            teacher.workload > 85 ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' :
+                            teacher.workload > 60 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' :
+                            'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
+                         }`}>
+                            {teacher.workload > 85 ? 'Overloaded' : teacher.workload > 60 ? 'Busy' : 'Balanced'}
+                         </span>
+                      </td>
+                    </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      </Card>
+
+      {/* 5. AI Deep Analysis Results */}
+      {workloadInsights && (
+          <div className="animate-fadeIn mt-8 space-y-6">
+             <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-600 text-white rounded-lg"><Sparkles size={24}/></div>
+                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white uppercase tracking-tight">AI Organizational Insights</h3>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="border-indigo-500/30 bg-indigo-50/10 dark:bg-indigo-950/10">
+                   <h4 className="font-extrabold text-indigo-900 dark:text-indigo-300 mb-3 flex items-center gap-2 uppercase text-sm tracking-widest">
+                       <TrendingUp size={18}/> บทวิเคราะห์ภาพรวมโครงสร้าง
+                   </h4>
+                   <p className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                      "{workloadInsights.summary}"
+                   </p>
+                </Card>
+
+                <Card className="border-purple-500/30 bg-purple-50/10 dark:bg-purple-950/10">
+                   <h4 className="font-extrabold text-purple-900 dark:text-purple-300 mb-3 flex items-center gap-2 uppercase text-sm tracking-widest">
+                       <Activity size={18}/> ข้อเสนอแนะเพื่อการปรับปรุง
+                   </h4>
+                   <ul className="space-y-3">
+                      {workloadInsights.recommendations.map((rec, idx) => (
+                          <li key={idx} className="flex items-start gap-3 group">
+                             <div className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[10px] shrink-0 font-bold group-hover:scale-110 transition-transform">{idx+1}</div>
+                             <span className="text-xs font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{rec}</span>
+                          </li>
+                      ))}
+                   </ul>
+                </Card>
+             </div>
+          </div>
+      )}
+      
+      {/* Footer Info */}
+      <div className="flex items-center justify-center gap-2 py-8 text-[#9CA3AF] text-xs font-bold uppercase tracking-widest opacity-50">
+         <Briefcase size={14}/> ข้อมูลอัปเดตเรียลไทม์ตามฐานข้อมูลพนักงาน | SmartSub AI
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// IMAGE EDITOR
+// ==========================================
+
+export const ImageEditor: React.FC = () => {
+  const [image, setImage] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result as string);
+        setResultImage(null); 
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!image || !prompt) return;
+    setIsProcessing(true);
+    setResultImage(null);
+    try {
+      const result = await editImage(image, prompt);
+      if (result) {
+        setResultImage(result);
+      }
+    } catch (error) {
+      alert("Failed to edit image. Check API key or quotas.");
+    }
+    setIsProcessing(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">แต่งรูปด้วย AI (Nano Banana)</h2>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <Card title="อัพโหลดรูปภาพ" icon={<Upload />}>
+            <div className="space-y-4">
+               <div 
+                 onClick={() => fileInputRef.current?.click()}
+                 className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors min-h-[250px] bg-slate-50 dark:bg-slate-950/50"
+               >
+                  {image ? (
+                    <img src={image} alt="Original" className="max-h-[200px] object-contain rounded-lg shadow-md" />
+                  ) : (
+                    <>
+                      <ImageIcon size={48} className="text-[#9CA3AF] mb-4" />
+                      <p className="text-slate-600 dark:text-[#9CA3AF] font-bold">คลิกเพื่ออัพโหลดรูปภาพ</p>
+                      <p className="text-xs text-[#9CA3AF] mt-2 font-bold italic">รองรับ PNG, JPG</p>
+                    </>
+                  )}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+               </div>
+
+               <div>
+                 <label className="block text-sm font-extrabold text-[#9CA3AF] mb-2">คำสั่ง (Prompt)</label>
+                 <textarea 
+                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 text-slate-900 dark:text-slate-100 font-bold min-h-[100px]"
+                   placeholder="เช่น เปลี่ยนพื้นหลังเป็นห้องเรียน, ทำให้ภาพดูเก่าแบบ retro, ลบวัตถุสีแดงออก..."
+                   value={prompt}
+                   onChange={(e) => setPrompt(e.target.value)}
+                 />
+               </div>
+
+               <Button 
+                 className="w-full font-extrabold shadow-sm" 
+                 onClick={handleEdit} 
+                 disabled={!image || !prompt || isProcessing}
+                 isLoading={isProcessing}
+               >
+                 <Wand2 size={18} className="mr-2" /> สร้างสรรค์ภาพใหม่
+               </Button>
+            </div>
+         </Card>
+
+         <Card title="ผลลัพธ์" icon={<Wand2 />}>
+            <div className="h-full min-h-[400px] flex flex-col">
+               <div className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center overflow-hidden p-4 shadow-inner">
+                  {isProcessing ? (
+                    <div className="text-center font-bold">
+                       <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                       <p className="text-slate-600 dark:text-[#9CA3AF]">กำลังประมวลผลด้วย Gemini 2.5...</p>
+                    </div>
+                  ) : resultImage ? (
+                    <img src={resultImage} alt="Result" className="max-h-full max-w-full object-contain rounded-lg shadow-lg" />
+                  ) : (
+                    <p className="text-[#9CA3AF] text-sm font-bold italic">ภาพผลลัพธ์จะแสดงที่นี่</p>
+                  )}
+               </div>
+               
+               {resultImage && (
+                 <div className="mt-4 flex justify-end">
+                    <a href={resultImage} download="edited-image.png" className="w-full">
+                       <Button variant="success" className="w-full font-extrabold shadow-sm">
+                          <Download size={18} className="mr-2" /> ดาวน์โหลดรูปภาพ
+                       </Button>
+                    </a>
+                 </div>
+               )}
+
+               <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg flex gap-3 shadow-sm">
+                  <AlertCircle size={20} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <p className="text-xs text-indigo-700 dark:text-indigo-300 font-bold italic">
+                     หมายเหตุ: ฟีเจอร์นี้ใช้ Gemini 2.5 Flash Image. ผลลัพธ์อาจแตกต่างกันไปตามความซับซ้อนของคำสั่ง
+                  </p>
+               </div>
+            </div>
+         </Card>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
 // SETTINGS
 // ==========================================
 
@@ -1318,8 +1724,7 @@ export const Settings: React.FC = () => {
 };
 
 // ==========================================
-// APPROVALS, WORKLOAD, IMAGE EDITOR
-// (Already implemented but ensuring they are exported for App.tsx)
+// APPROVALS, IMAGE EDITOR (Ensuring exports for App.tsx)
 // ==========================================
 
 export const Approvals: React.FC = () => {
@@ -1345,7 +1750,7 @@ export const Approvals: React.FC = () => {
            <input 
              type="text" 
              placeholder="ค้นหาชื่อครู, วิชา..." 
-             className="w-full sm:w-64 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 text-slate-900 dark:text-slate-100 placeholder-[#9CA3AF] font-bold"
+             className="w-full sm:w-64 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 text-slate-900 dark:text-slate-100 font-bold"
              value={searchQuery}
              onChange={(e) => setSearchQuery(e.target.value)}
            />
@@ -1364,7 +1769,7 @@ export const Approvals: React.FC = () => {
                  <div className="flex flex-col md:flex-row justify-between gap-4">
                     <div className="flex-1">
                        <div className="flex items-center gap-2 mb-2">
-                          <span className="px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 text-xs font-extrabold border border-amber-200 dark:border-amber-400/20 flex items-center gap-1 shadow-sm">
+                          <span className="px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-extrabold border border-amber-200 dark:border-amber-400/20 flex items-center gap-1 shadow-sm">
                              <Clock size={12} /> Pending
                           </span>
                           <span className="text-sm font-bold text-[#9CA3AF]">Requested: {approval.requestedAt}</span>
@@ -1400,235 +1805,6 @@ export const Approvals: React.FC = () => {
              <p>ไม่พบรายการที่ค้นหา</p>
           </div>
         )}
-      </div>
-    </div>
-  );
-};
-
-export const Workload: React.FC = () => {
-  const [baseHours, setBaseHours] = useState(DEFAULT_WORKLOAD_SETTINGS.baseHours);
-
-  useEffect(() => {
-    const storedWorkload = localStorage.getItem('smartsub_workload_settings');
-    if (storedWorkload) {
-      setBaseHours(JSON.parse(storedWorkload).baseHours);
-    }
-  }, []);
-
-  const chartData = TEACHERS.map(t => {
-    const teachingPerc = (t.teaching_hours / baseHours) * 100;
-    const substitutePerc = (t.substitute_hours / baseHours) * 100;
-    const otherPerc = (t.other_hours / baseHours) * 100;
-
-    return {
-      name: t.name.split(' ')[0], 
-      teachingPerc: Math.round(teachingPerc * 10) / 10,
-      substitutePerc: Math.round(substitutePerc * 10) / 10,
-      otherPerc: Math.round(otherPerc * 10) / 10,
-      totalLoad: t.workload,
-      full: t
-    };
-  }).sort((a, b) => b.totalLoad - a.totalLoad);
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">ภาระงานครู (Workload Analysis)</h2>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         <div className="lg:col-span-2">
-            <Card title="กราฟวิเคราะห์ภาระงานแยกตามประเภท (%)">
-               <div className="h-[450px] w-full">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <BarChart data={chartData} layout="vertical" margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
-                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} className="dark:stroke-slate-800" />
-                     <XAxis type="number" stroke="#94a3b8" domain={[0, 100]} />
-                     <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} style={{ fontSize: '12px', fontWeight: 'bold' }} />
-                     <Tooltip 
-                        cursor={{fill: 'transparent'}}
-                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9', borderRadius: '8px', fontWeight: 'bold' }}
-                        itemStyle={{ fontWeight: 'bold' }}
-                     />
-                     <Legend verticalAlign="top" height={36}/>
-                     <Bar dataKey="teachingPerc" name="สอนปกติ" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
-                     <Bar dataKey="substitutePerc" name="สอนแทน" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
-                     <Bar dataKey="otherPerc" name="งานอื่นๆ" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} />
-                     
-                     {/* Reference Line at 80% to show workload warning */}
-                     <ReferenceLine x={80} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: 'Overload (80%)', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }} />
-                   </BarChart>
-                 </ResponsiveContainer>
-               </div>
-               <div className="mt-4 flex flex-wrap gap-4 text-[10px] font-bold text-slate-500 justify-center">
-                  <div className="flex items-center gap-1"><span className="w-3 h-3 bg-[#6366f1] rounded"></span> สอนปกติ</div>
-                  <div className="flex items-center gap-1"><span className="w-3 h-3 bg-[#f59e0b] rounded"></span> สอนแทน</div>
-                  <div className="flex items-center gap-1"><span className="w-3 h-3 bg-[#10b981] rounded"></span> งานอื่นๆ</div>
-               </div>
-            </Card>
-         </div>
-         
-         <div>
-            <Card title="สรุปสถานะภาระงาน" className="h-full">
-               <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                     <div className="text-xs font-extrabold text-[#9CA3AF] uppercase mb-1">ภาระงานเฉลี่ยรวม</div>
-                     <div className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">
-                        {Math.round(chartData.reduce((acc, curr) => acc + curr.totalLoad, 0) / chartData.length)}%
-                     </div>
-                  </div>
-                  
-                  <h4 className="text-sm font-extrabold text-slate-700 dark:text-slate-300 mt-4 mb-2 flex items-center gap-2">
-                    <AlertOctagon size={16} className="text-red-500" /> ครูที่มีภาระงานวิกฤต (>80%)
-                  </h4>
-                  <div className="space-y-2">
-                     {chartData.filter(d => d.totalLoad > 80).map(d => (
-                        <div key={d.name} className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 shadow-sm">
-                           <span className="text-sm font-bold text-red-700 dark:text-red-300">{d.name}</span>
-                           <span className="text-sm font-extrabold text-red-600 dark:text-red-400">{d.totalLoad}%</span>
-                        </div>
-                     ))}
-                     {chartData.filter(d => d.totalLoad > 80).length === 0 && (
-                        <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 italic">ไม่มีครูภาระงานเกินเกณฑ์</div>
-                     )}
-                  </div>
-
-                  <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
-                    <h5 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-3 uppercase">เกณฑ์การจัดสอนแทนอัตโนมัติ</h5>
-                    <ul className="space-y-2 text-[11px] font-bold text-slate-600 dark:text-[#9CA3AF]">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle size={14} className="text-indigo-500 shrink-0" />
-                        <span>ระบบจะเลือกครูที่มี Load รวมน้อยที่สุดเป็นลำดับต้นๆ</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle size={14} className="text-indigo-500 shrink-0" />
-                        <span>ชั่วโมง "สอนแทน" จะถูกเพิ่มเข้าไปใน Load ทันทีที่ได้รับการอนุมัติ</span>
-                      </li>
-                    </ul>
-                  </div>
-               </div>
-            </Card>
-         </div>
-      </div>
-    </div>
-  );
-};
-
-export const ImageEditor: React.FC = () => {
-  const [image, setImage] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [resultImage, setResultImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-        setResultImage(null); 
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!image || !prompt) return;
-    setIsProcessing(true);
-    setResultImage(null);
-    try {
-      const result = await editImage(image, prompt);
-      if (result) {
-        setResultImage(result);
-      }
-    } catch (error) {
-      alert("Failed to edit image. Check API key or quotas.");
-    }
-    setIsProcessing(false);
-  };
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">แต่งรูปด้วย AI (Nano Banana)</h2>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-         <Card title="อัพโหลดรูปภาพ" icon={<Upload />}>
-            <div className="space-y-4">
-               <div 
-                 onClick={() => fileInputRef.current?.click()}
-                 className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors min-h-[250px] bg-slate-50 dark:bg-slate-950/50"
-               >
-                  {image ? (
-                    <img src={image} alt="Original" className="max-h-[200px] object-contain rounded-lg shadow-md" />
-                  ) : (
-                    <>
-                      <ImageIcon size={48} className="text-[#9CA3AF] mb-4" />
-                      <p className="text-slate-600 dark:text-[#9CA3AF] font-bold">คลิกเพื่ออัพโหลดรูปภาพ</p>
-                      <p className="text-xs text-[#9CA3AF] mt-2 font-bold italic">รองรับ PNG, JPG</p>
-                    </>
-                  )}
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={handleFileChange}
-                  />
-               </div>
-
-               <div>
-                 <label className="block text-sm font-extrabold text-[#9CA3AF] mb-2">คำสั่ง (Prompt)</label>
-                 <textarea 
-                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 text-slate-900 dark:text-slate-100 font-bold min-h-[100px]"
-                   placeholder="เช่น เปลี่ยนพื้นหลังเป็นห้องเรียน, ทำให้ภาพดูเก่าแบบ retro, ลบวัตถุสีแดงออก..."
-                   value={prompt}
-                   onChange={(e) => setPrompt(e.target.value)}
-                 />
-               </div>
-
-               <Button 
-                 className="w-full font-extrabold shadow-sm" 
-                 onClick={handleEdit} 
-                 disabled={!image || !prompt || isProcessing}
-                 isLoading={isProcessing}
-               >
-                 <Wand2 size={18} className="mr-2" /> สร้างสรรค์ภาพใหม่
-               </Button>
-            </div>
-         </Card>
-
-         <Card title="ผลลัพธ์" icon={<Wand2 />}>
-            <div className="h-full min-h-[400px] flex flex-col">
-               <div className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center overflow-hidden p-4 shadow-inner">
-                  {isProcessing ? (
-                    <div className="text-center font-bold">
-                       <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                       <p className="text-slate-600 dark:text-[#9CA3AF]">กำลังประมวลผลด้วย Gemini 2.5...</p>
-                    </div>
-                  ) : resultImage ? (
-                    <img src={resultImage} alt="Result" className="max-h-full max-w-full object-contain rounded-lg shadow-lg" />
-                  ) : (
-                    <p className="text-[#9CA3AF] text-sm font-bold italic">ภาพผลลัพธ์จะแสดงที่นี่</p>
-                  )}
-               </div>
-               
-               {resultImage && (
-                 <div className="mt-4 flex justify-end">
-                    <a href={resultImage} download="edited-image.png" className="w-full">
-                       <Button variant="success" className="w-full font-extrabold shadow-sm">
-                          <Download size={18} className="mr-2" /> ดาวน์โหลดรูปภาพ
-                       </Button>
-                    </a>
-                 </div>
-               )}
-
-               <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg flex gap-3 shadow-sm">
-                  <AlertCircle size={20} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <p className="text-xs text-indigo-700 dark:text-indigo-300 font-bold italic">
-                     หมายเหตุ: ฟีเจอร์นี้ใช้ Gemini 2.5 Flash Image. ผลลัพธ์อาจแตกต่างกันไปตามความซับซ้อนของคำสั่ง
-                  </p>
-               </div>
-            </div>
-         </Card>
       </div>
     </div>
   );
